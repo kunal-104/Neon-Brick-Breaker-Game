@@ -1145,7 +1145,7 @@ if (score === totalBricks) {
             ctx.fillStyle = "#fff";
             ctx.shadowColor = "black";
             ctx.shadowBlur = 5;
-            ctx.fillText("Score: " + score, 60, 30);
+            ctx.fillText("Level: " + currentLevel + " Score: " + score , 60, 30);
             ctx.fillText("Lives: " + (lives < 0 ? 0 : lives), canvas.width - 140, 30);
             ctx.shadowBlur = 0;
         }
