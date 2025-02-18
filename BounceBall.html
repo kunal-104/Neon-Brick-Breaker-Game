@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Brick Breaker</title>
+    <style>
+   * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #121212;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+            position: fixed; /* Prevents bouncing on iOS */
+        }
+        
+        canvas {
+            display: block;
+            background: #1e1e1e;
+            width: 100vw;
+            height: 100vh;
+            border: min(5px, 2vw) solid #ff0044;
+            box-shadow: 0 0 20px #ff0044, 0 0 40px #00ffcc inset;
+        }
+        
+        #overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: min(30px, 5vw);
+            border-radius: min(10px, 2vw);
+            text-align: center;
+            display: none;
+            box-shadow: 0 0 25px #ff0044;
+            transition: opacity 0.3s, transform 0.3s;
+            width: min(90vw, 400px);
+            z-index: 1000;
+        }
+        
+        #overlay.active {
+            display: block;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        #overlay h2 {
+            font-size: min(26px, 5vw);
+            margin-bottom: min(20px, 4vw);
+            text-shadow: 0 0 10px #ff0044;
+        }
+        
+        #overlay button {
+            padding: min(12px, 3vw) min(20px, 4vw);
+            font-size: min(18px, 4vw);
+            cursor: pointer;
+            background: #ff0044;
+            border: none;
+            color: white;
+            border-radius: min(5px, 1vw);
+            transition: 0.3s;
+            box-shadow: 0 0 15px #ff0044;
+            width: min(200px, 80%);
+        }
+        
+        #overlay button:hover {
+            background: #cc0033;
+        }
+        
+        #autoPlayLabel {
+            position: fixed;
+            top: min(10px, 2vh);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            color: white;
+            font-size: min(14px, 3.5vw);
+            background: rgba(0, 0, 0, 0.5);
+            padding: min(10px, 2vw);
+            border-radius: min(5px, 1vw);
+            cursor: pointer;
+            z-index: 100;
+        }
+        
+        @media (max-width: 768px) {
+            .paddle {
+                width: min(120px, 30vw);
+                height: min(15px, 4vw);
+            }
+            
+            #autoPlayLabel {
+                top: auto;
+                bottom: min(10px, 2vh);
+            }
+        }
+        
+        @media (max-height: 500px) {
+            #overlay {
+                padding: 15px;
+            }
+            
+            #overlay h2 {
+                font-size: 20px;
+                margin-bottom: 10px;
+            }
+            
+            #overlay button {
+                padding: 8px 15px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay">
+        <h2 id="message"></h2>
+        <button id="button" onclick="resetGame()"></button>
+    </div>
+    <label id="autoPlayLabel">
+        <input type="checkbox" id="autoPlayToggle"> Auto-Play
+    </label>
+
+    <script>
+        let autoPlay = false;
+        const autoPlayToggle = document.getElementById("autoPlayToggle");
+        let currentLevel = 1;
+// Listen for checkbox change
+autoPlayToggle.addEventListener("change", function () {
+    autoPlay = this.checked;
+    if (autoPlay) {
+        movePaddle();
+    }
+});
+	const levelPattern = [
+    // Level 1: Simple rows
+   // {
+   //     pattern: [
+   //         [1,1,1,1,1,1,1,1,1,1,1,1],
+   //         [1,1,1,1,1,1,1,1,1,1,1,1],
+   //         [1,1,1,1,1,1,1,1,1,1,1,1]
+   //     ],
+   //     speedMultiplier: 1
+   // },
+    // Level 2: Pyramid pattern
+    {
+        pattern: [
+            [0,0,0,0,1,1,1,1,0,0,0,0],
+            [0,0,0,1,1,1,1,1,1,0,0,0],
+            [0,0,1,1,1,1,1,1,1,1,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,0],
+            [1,1,1,1,1,1,1,1,1,1,1,1]
+        ],
+        speedMultiplier: 1.2
+    },
+    // Level 3: Checkerboard pattern
+    {
+        pattern: [
+            [1,0,1,0,1,0,1,0,1,0,1,0],
+            [0,1,0,1,0,1,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0,1,0,1,0],
+            [0,1,0,1,0,1,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0,1,0,1,0]
+        ],
+        speedMultiplier: 1.4
+    },
+    // Level 4: Fortress pattern
+    {
+        pattern: [
+            [1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,1,1,0,0,0,0,1],
+            [1,0,1,1,0,1,1,0,1,1,0,1],
+            [1,0,1,1,0,1,1,0,1,1,0,1],
+            [1,0,0,0,0,1,1,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1]
+        ],
+        speedMultiplier: 1.6
+    }
+];
+
+
+        document.getElementById("autoPlayToggle").addEventListener("change", function() {
+            autoPlay = this.checked;
+            if (autoPlay) {
+                movePaddle();
+            }
+        });
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+
+        const paddle = {
+    width: 120,
+    height: 15,
+    x: canvas.width / 2 - 60,
+    y: canvas.height - 90,
+    speed: 8,
+    dx: 0,
+    cornerRadius: 7.5  // Half of height for full rounding
+};
+
+        const ball = {
+            x: canvas.width / 2,
+            y: paddle.y - 20,
+            radius: 10,
+            baseSpeed: 4,
+            maxSpeed: 6,
+            speed: 4,
+            dx: 0,
+            dy: 0
+        };
+
+        const brickTypes = [
+            { 
+                color: "#FF6B6B",  // Red
+                minHealth: 1,
+                maxHealth: 2      
+            },
+            { 
+                color: "#4ECDC4",  // Teal
+                minHealth: 1,      
+                maxHealth: 3       
+            },
+            { 
+                color: "#45B7D1",  // Blue
+                minHealth: 1,      
+                maxHealth: 2       
+            },
+            { 
+                color: "#FDCB6E",  // Yellow
+                minHealth: 1,      
+                maxHealth: 3       
+            }
+        ];
+        
+// 		const brickPattern = [
+//     // Level 1: Simple rows to get started
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 1
+//     },
+    
+//     // Level 2: Pyramid
+//     {
+//         pattern: [
+//             [0,0,0,0,1,1,1,1,0,0,0,0],
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [0,0,1,1,1,1,1,1,1,1,0,0],
+//             [0,1,1,1,1,1,1,1,1,1,1,0],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 1.1
+//     },
+    
+//     // Level 3: Checkerboard
+//     {
+//         pattern: [
+//             [1,0,1,0,1,0,1,0,1,0,1,0],
+//             [0,1,0,1,0,1,0,1,0,1,0,1],
+//             [1,0,1,0,1,0,1,0,1,0,1,0],
+//             [0,1,0,1,0,1,0,1,0,1,0,1]
+//         ],
+//         speedMultiplier: 1.2
+//     },
+    
+//     // Level 4: Double Diamond
+//     {
+//         pattern: [
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [0,1,0,0,0,0,0,0,0,0,1,0],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [0,1,0,0,0,0,0,0,0,0,1,0],
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [0,0,0,1,1,1,1,1,1,0,0,0]
+//         ],
+//         speedMultiplier: 1.3
+//     },
+    
+//     // Level 5: Fortress
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,0,0,0,0,1,1,0,0,0,0,1],
+//             [1,0,1,1,0,1,1,0,1,1,0,1],
+//             [1,0,1,1,0,1,1,0,1,1,0,1],
+//             [1,0,0,0,0,1,1,0,0,0,0,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 1.4
+//     },
+    
+//     // Level 6: Cross Pattern
+//     {
+//         pattern: [
+//             [1,0,0,0,1,1,1,1,0,0,0,1],
+//             [0,1,0,0,1,1,1,1,0,0,1,0],
+//             [0,0,1,0,1,1,1,1,0,1,0,0],
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [0,0,1,0,1,1,1,1,0,1,0,0],
+//             [0,1,0,0,1,1,1,1,0,0,1,0],
+//             [1,0,0,0,1,1,1,1,0,0,0,1]
+//         ],
+//         speedMultiplier: 1.5
+//     },
+    
+//     // Level 7: Wave Pattern
+//     {
+//         pattern: [
+//             [1,0,0,0,0,1,1,0,0,0,0,1],
+//             [0,1,0,0,1,0,0,1,0,0,1,0],
+//             [0,0,1,1,0,0,0,0,1,1,0,0],
+//             [0,0,0,1,0,0,0,0,1,0,0,0],
+//             [0,0,1,1,0,0,0,0,1,1,0,0],
+//             [0,1,0,0,1,0,0,1,0,0,1,0],
+//             [1,0,0,0,0,1,1,0,0,0,0,1]
+//         ],
+//         speedMultiplier: 1.6
+//     },
+    
+//     // Level 8: Heart Shape
+//     {
+//         pattern: [
+//             [0,1,1,0,0,0,0,0,0,1,1,0],
+//             [1,1,1,1,0,0,0,0,1,1,1,1],
+//             [1,1,1,1,1,0,0,1,1,1,1,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [0,1,1,1,1,1,1,1,1,1,1,0],
+//             [0,0,1,1,1,1,1,1,1,1,0,0],
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [0,0,0,0,1,1,1,1,0,0,0,0],
+//             [0,0,0,0,0,1,1,0,0,0,0,0]
+//         ],
+//         speedMultiplier: 1.7
+//     },
+    
+//     // Level 9: Maze
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,1,0,0,0,0,0,0,1,0,1],
+//             [1,0,1,0,1,1,1,1,0,1,0,1],
+//             [1,0,1,0,1,0,0,1,0,1,0,1],
+//             [1,0,1,0,1,1,0,1,0,1,0,1],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 1.8
+//     },
+    
+//     // Level 10: Space Invader
+//     {
+//         pattern: [
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [0,0,0,1,0,0,0,0,1,0,0,0],
+//             [0,0,1,1,1,1,1,1,1,1,0,0],
+//             [0,1,1,0,1,1,1,1,0,1,1,0],
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,1,0,0,0,0,0,0,1,0,1],
+//             [0,0,0,1,1,0,0,1,1,0,0,0]
+//         ],
+//         speedMultiplier: 1.9
+//     },
+    
+//     // Level 11: Spiral
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,1,0,0,0,0,0,0,1,0,1],
+//             [1,0,1,0,1,1,1,1,0,1,0,1],
+//             [1,0,1,0,1,0,0,1,0,1,0,1],
+//             [1,0,1,0,1,1,1,1,0,1,0,1],
+//             [1,0,1,0,0,0,0,0,0,1,0,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 2.0
+//     },
+    
+//     // Level 12: Double Helix
+//     {
+//         pattern: [
+//             [1,0,0,0,1,0,0,1,0,0,0,1],
+//             [0,1,0,1,0,0,0,0,1,0,1,0],
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [0,1,0,1,0,0,0,0,1,0,1,0],
+//             [1,0,0,0,1,0,0,1,0,0,0,1],
+//             [0,1,0,1,0,0,0,0,1,0,1,0],
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [0,1,0,1,0,0,0,0,1,0,1,0],
+//             [1,0,0,0,1,0,0,1,0,0,0,1]
+//         ],
+//         speedMultiplier: 2.1
+//     },
+    
+//     // Level 13: Tetris Shapes
+//     {
+//         pattern: [
+//             [1,1,0,0,1,1,1,0,0,1,1,0],
+//             [1,1,0,0,0,1,0,0,0,1,1,0],
+//             [0,0,0,0,0,1,0,0,0,0,0,0],
+//             [0,1,1,0,0,0,0,0,1,1,1,0],
+//             [0,1,1,0,0,0,0,0,0,1,0,0],
+//             [1,1,0,0,1,1,0,0,0,1,0,0],
+//             [1,1,0,1,1,1,0,0,0,1,0,0]
+//         ],
+//         speedMultiplier: 2.2
+//     },
+    
+//     // Level 14: Castle
+//     {
+//         pattern: [
+//             [1,0,1,0,1,0,1,0,1,0,1,0],
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [0,1,1,1,1,1,1,1,1,1,1,0],
+//             [0,1,0,0,0,1,1,0,0,0,1,0],
+//             [0,1,0,1,0,1,1,0,1,0,1,0],
+//             [0,1,0,0,0,1,1,0,0,0,1,0],
+//             [0,1,1,1,1,1,1,1,1,1,1,0],
+//             [0,0,1,1,1,1,1,1,1,1,0,0]
+//         ],
+//         speedMultiplier: 2.3
+//     },
+    
+//     // Level 15: Butterfly
+//     {
+//         pattern: [
+//             [1,0,0,0,0,1,1,0,0,0,0,1],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,1,1,1,1,0,0,1,1,1,1,1],
+//             [0,1,1,1,0,0,0,0,1,1,1,0],
+//             [0,0,1,0,0,1,1,0,0,1,0,0],
+//             [0,1,1,1,0,0,0,0,1,1,1,0],
+//             [1,1,1,1,1,0,0,1,1,1,1,1],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,0,0,0,0,1,1,0,0,0,0,1]
+//         ],
+//         speedMultiplier: 2.4
+//     },
+    
+//     // Level 16: Circuit Board
+//     {
+//         pattern: [
+//             [1,1,1,0,0,1,1,0,0,1,1,1],
+//             [1,0,0,0,0,1,1,0,0,0,0,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [0,0,1,0,1,1,1,1,0,1,0,0],
+//             [1,1,1,0,1,0,0,1,0,1,1,1],
+//             [0,0,1,0,1,1,1,1,0,1,0,0],
+//             [0,0,1,0,0,0,0,0,0,1,0,0],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,0,0,0,1,1,0,0,0,0,1],
+//             [1,1,1,0,0,1,1,0,0,1,1,1]
+//         ],
+//         speedMultiplier: 2.5
+//     },
+//     // Level 17: DNA Structure
+//     {
+//         pattern: [
+//             [1,0,0,1,0,0,1,0,0,1,0,0],
+//             [0,1,0,0,1,0,0,1,0,0,1,0],
+//             [0,0,1,0,0,1,1,0,0,1,0,0],
+//             [1,0,0,1,0,0,0,0,1,0,0,1],
+//             [0,1,0,0,1,0,0,1,0,0,1,0],
+//             [0,0,1,0,0,1,1,0,0,1,0,0],
+//             [1,0,0,1,0,0,0,0,1,0,0,1]
+//         ],
+//         speedMultiplier: 2.5
+//     },
+
+//     // Level 18: Pinwheel
+//     {
+//         pattern: [
+//             [1,1,1,0,0,0,0,0,0,1,1,1],
+//             [1,1,0,0,0,0,0,0,1,1,1,1],
+//             [1,0,0,0,0,0,0,1,1,1,1,1],
+//             [0,0,0,0,0,0,1,1,1,0,0,0],
+//             [0,0,0,0,0,1,1,1,0,0,0,0],
+//             [0,0,0,0,1,1,1,0,0,0,0,0],
+//             [0,0,0,1,1,1,0,0,0,0,0,0],
+//             [1,1,1,1,1,0,0,0,0,0,1,1]
+//         ],
+//         speedMultiplier: 2.6
+//     },
+
+//     // Level 19: Honeycomb
+//     {
+//         pattern: [
+//             [0,1,1,0,1,1,0,1,1,0,1,1],
+//             [1,1,0,1,1,0,1,1,0,1,1,0],
+//             [1,0,0,1,0,0,1,0,0,1,0,0],
+//             [0,1,1,0,1,1,0,1,1,0,1,1],
+//             [1,1,0,1,1,0,1,1,0,1,1,0],
+//             [1,0,0,1,0,0,1,0,0,1,0,0],
+//             [0,1,1,0,1,1,0,1,1,0,1,1]
+//         ],
+//         speedMultiplier: 2.7
+//     },
+
+//     // Level 20: Star Constellation
+//     {
+//         pattern: [
+//             [1,0,0,1,0,1,1,0,1,0,0,1],
+//             [0,1,0,0,1,0,0,1,0,0,1,0],
+//             [0,0,1,0,0,1,1,0,0,1,0,0],
+//             [1,0,0,1,1,0,0,1,1,0,0,1],
+//             [0,1,0,1,0,1,1,0,1,0,1,0],
+//             [1,0,1,0,1,1,1,1,0,1,0,1]
+//         ],
+//         speedMultiplier: 2.8
+//     },
+
+//     // Level 21: Labyrinth
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,1,0,0,0,0,0,0,0,0,1],
+//             [1,0,1,0,1,1,1,1,1,1,1,1],
+//             [1,0,1,0,0,0,0,0,0,0,0,1],
+//             [1,0,1,1,1,1,1,1,1,1,0,1],
+//             [1,0,0,0,0,0,0,0,0,0,0,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 2.9
+//     },
+
+//     // Level 22: Binary Code
+//     {
+//         pattern: [
+//             [1,0,1,0,1,0,1,0,1,0,1,0],
+//             [0,1,0,1,0,1,0,1,0,1,0,1],
+//             [1,1,0,0,1,1,0,0,1,1,0,0],
+//             [0,0,1,1,0,0,1,1,0,0,1,1],
+//             [1,0,1,0,1,0,1,0,1,0,1,0],
+//             [1,1,0,0,1,1,0,0,1,1,0,0]
+//         ],
+//         speedMultiplier: 3.0
+//     },
+
+//     // Level 23: Dragon Scale
+//     {
+//         pattern: [
+//             [0,1,1,1,0,0,0,1,1,1,0,0],
+//             [1,1,1,1,1,0,1,1,1,1,1,0],
+//             [1,1,0,1,1,1,1,1,0,1,1,1],
+//             [1,0,0,0,1,1,1,0,0,0,1,1],
+//             [0,0,0,1,1,1,0,0,0,1,1,1],
+//             [0,0,1,1,1,0,0,0,1,1,1,0],
+//             [0,1,1,1,0,0,0,1,1,1,0,0]
+//         ],
+//         speedMultiplier: 3.1
+//     },
+
+//     // Level 24: Pixel Art Face
+//     {
+//         pattern: [
+//             [0,0,1,1,1,1,1,1,1,1,0,0],
+//             [0,1,1,1,1,1,1,1,1,1,1,0],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,1,0,1,1,1,1,1,1,0,1,1],
+//             [0,1,1,0,0,0,0,0,0,1,1,0],
+//             [0,0,1,1,1,1,1,1,1,1,0,0]
+//         ],
+//         speedMultiplier: 3.2
+//     },
+
+//     // Level 25: Tribal Pattern
+//     {
+//         pattern: [
+//             [1,0,1,0,1,1,1,1,0,1,0,1],
+//             [1,1,0,1,0,1,1,0,1,0,1,1],
+//             [1,0,1,0,1,0,0,1,0,1,0,1],
+//             [0,1,0,1,0,0,0,0,1,0,1,0],
+//             [1,0,1,0,1,0,0,1,0,1,0,1],
+//             [1,1,0,1,0,1,1,0,1,0,1,1],
+//             [1,0,1,0,1,1,1,1,0,1,0,1]
+//         ],
+//         speedMultiplier: 3.3
+//     },
+
+//     // Level 26: Pyramid Maze
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [0,1,1,1,1,0,0,1,1,1,1,0],
+//             [0,0,1,1,0,0,0,0,1,1,0,0],
+//             [0,0,0,1,1,0,0,1,1,0,0,0],
+//             [0,0,1,1,1,1,1,1,1,1,0,0],
+//             [0,1,1,0,0,1,1,0,0,1,1,0],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 3.4
+//     },
+
+//     // Level 27: Circuit Matrix
+//     {
+//         pattern: [
+//             [1,0,1,1,0,1,1,0,1,1,0,1],
+//             [1,0,0,1,0,0,0,0,1,0,0,1],
+//             [1,1,0,1,1,1,1,1,1,0,1,1],
+//             [0,1,0,0,0,1,1,0,0,0,1,0],
+//             [1,1,0,1,1,1,1,1,1,0,1,1],
+//             [1,0,0,1,0,0,0,0,1,0,0,1],
+//             [1,0,1,1,0,1,1,0,1,1,0,1]
+//         ],
+//         speedMultiplier: 3.5
+//     },
+
+//     // Level 28: Double Cross
+//     {
+//         pattern: [
+//             [1,0,0,0,1,1,1,1,0,0,0,1],
+//             [0,1,0,0,1,1,1,1,0,0,1,0],
+//             [0,0,1,0,1,1,1,1,0,1,0,0],
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [1,1,1,1,1,0,0,1,1,1,1,1],
+//             [1,1,1,1,0,0,0,0,1,1,1,1],
+//             [1,1,1,1,1,0,0,1,1,1,1,1],
+//             [0,0,0,1,1,1,1,1,1,0,0,0]
+//         ],
+//         speedMultiplier: 3.6
+//     },
+
+//     // Level 29: Crystal Formation
+//     {
+//         pattern: [
+//             [0,0,0,0,1,1,1,1,0,0,0,0],
+//             [0,0,0,1,1,1,1,1,1,0,0,0],
+//             [0,0,1,1,0,1,1,0,1,1,0,0],
+//             [0,1,1,0,0,1,1,0,0,1,1,0],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,1,1,1,1,0,0,1,1,1,1,1],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [0,1,1,0,0,1,1,0,0,1,1,0],
+//             [0,0,1,1,0,0,0,0,1,1,0,0]
+//         ],
+//         speedMultiplier: 3.7
+//     },
+
+//     // Level 30: Final Boss
+//     {
+//         pattern: [
+//             [1,1,1,1,1,1,1,1,1,1,1,1],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,0,1,1,0,1,1,0,1,1,0,1],
+//             [1,0,1,1,1,0,0,1,1,1,0,1],
+//             [1,1,0,1,1,1,1,1,1,0,1,1],
+//             [1,1,1,0,1,1,1,1,0,1,1,1],
+//             [1,0,1,1,1,0,0,1,1,1,0,1],
+//             [1,0,1,1,0,1,1,0,1,1,0,1],
+//             [1,1,0,0,1,1,1,1,0,0,1,1],
+//             [1,1,1,1,1,1,1,1,1,1,1,1]
+//         ],
+//         speedMultiplier: 4.0
+//     }
+
+// ]
+
+
+
+        const brickPattern = [
+    // Level 1: Simple rows
+   {
+       pattern: [
+           [1,0,0,0,0,0,0,0,0,0,0,0],
+        //    [1,1,1,1,1,1,1,1,1,1,1,1],
+        //    [1,1,1,1,1,1,1,1,1,1,1,1]
+       ],
+       speedMultiplier: 1
+   },
+
+   {
+       pattern: [
+           [1,0,0,0,0,0,0,0,0,0],
+           [1,0,0,0,0,0,0,0,0,0],
+
+        //    [1,1,1,1,1,1,1,1,1,1,1,1],
+        //    [1,1,1,1,1,1,1,1,1,1,1,1]
+       ],
+       speedMultiplier: 1
+   },
+
+    // {
+    //     pattern: [
+    //         [0,0,0,0,1,1,1,1,0,0,0,0],
+    //         [0,0,0,1,1,1,1,1,1,0,0,0],
+    //         [0,0,1,1,1,1,1,1,1,1,0,0],
+    //         [0,1,1,1,1,1,1,1,1,1,1,0],
+    //         [1,1,1,1,1,1,1,1,1,1,1,1]
+    //     ],
+    //     speedMultiplier: 1
+    // },
+    // // Level 3: Checkerboard pattern
+    // {
+    //     pattern: [
+    //         [1,0,1,0,1,0,1,0,1,0,1,0],
+    //         [0,1,0,1,0,1,0,1,0,1,0,1],
+    //         [1,0,1,0,1,0,1,0,1,0,1,0],
+    //         [0,1,0,1,0,1,0,1,0,1,0,1],
+    //         [1,0,1,0,1,0,1,0,1,0,1,0]
+    //     ],
+    //     speedMultiplier: 1.4
+    // },
+    // Level 4: Fortress pattern
+    // {
+    //     pattern: [
+    //         [1,1,1,1,1,1,1,1,1,1,1,1],
+    //         [1,0,0,0,0,1,1,0,0,0,0,1],
+    //         [1,0,1,1,0,1,1,0,1,1,0,1],
+    //         [1,0,1,1,0,1,1,0,1,1,0,1],
+    //         [1,0,0,0,0,1,1,0,0,0,0,1],
+    //         [1,1,1,1,1,1,1,1,1,1,1,1]
+    //     ],
+    //     speedMultiplier: 1.6
+    // }
+    //         [1,1,1,1,1,1,1,1,1,1,1,1],
+    //         [1,0,0,0,0,1,1,0,0,0,0,1],
+    //         [1,0,1,1,0,1,1,0,1,1,0,1],
+    //         [1,0,1,1,0,1,1,0,1,1,0,1],
+    //         [1,0,0,0,0,1,1,0,0,0,0,1],
+    //         [1,1,1,1,1,1,1,1,1,1,1,1]
+    //         [0, 0, 0, 1, 1, 1, 0, 0, 0],
+
+        ];
+        function isLastLevel() {
+    return currentLevel === brickPattern.length;
+}
+        
+        let totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length; // Count all non-zero bricks
+        let brickRowCount = brickPattern[currentLevel-1].pattern.length;
+        let brickColumnCount = brickPattern[currentLevel-1].pattern[0].length;
+        
+        let bricks = [];
+        function createBricks() {
+            bricks = [];
+
+            brickRowCount = brickPattern[currentLevel - 1].pattern.length;
+    brickColumnCount = brickPattern[currentLevel - 1].pattern[0].length;
+
+            const brickWidth = Math.floor(canvas.width / brickColumnCount);
+            const brickHeight = Math.floor(canvas.height / (brickRowCount * 3));
+            
+        // for (let r = 0; r < brickRowCount; r++) {
+            //     bricks[r] = [];
+            //     for (let c = 0; c < brickColumnCount; c++) {
+                const brickType = brickTypes[Math.floor(Math.random() * brickTypes.length)];
+                
+                //         bricks[r][c] = { 
+                    //             x: c * brickWidth,
+                    //             y: r * brickHeight + 50,
+                    //             width: brickWidth,
+                    //             height: brickHeight,
+                    //             status: 1, 
+                    //             type: brickType,
+                    //             health: Math.floor(Math.random() * 
+                    //                 (brickType.maxHealth - brickType.minHealth + 1)) + brickType.minHealth
+                    //         };
+                    //     }
+                    // }
+                    // console.log('brickPattern.length',brickPattern[currentLevel].length);
+
+                    let randomType = brickTypes[Math.floor(Math.random() * brickTypes.length)]; // Random brick type
+                    let randomHealth = randomType.health; // Assign health based on type
+                    const currentPattern = brickPattern[currentLevel - 1].pattern;
+                    for (let r = 0; r < brickRowCount; r++) {
+                        bricks[r] = [];
+        for (let c = 0; c < brickColumnCount; c++) {
+            if (currentPattern[r][c] === 1) {
+                bricks[r][c] = {
+                    x: c * brickWidth,
+                    y: r * brickHeight + 50,
+                    width: brickWidth,
+                    height: brickHeight,
+                    status: 1,
+                    type: brickType, // Assign random type
+                    health: Math.floor(Math.random() * 
+                                     (brickType.maxHealth - brickType.minHealth + 1)) + brickType.minHealth
+                };
+            } else {
+                bricks[r][c] = { status: 0 }; // Empty space where no brick is placed
+            }
+        }
+    }
+        }
+        createBricks();
+
+        let score = 0;
+        let lives = 3;
+        let gameRunning = false;
+        let gameFinish = false;
+        // let random = 
+
+        // function drawPaddle() {
+        //     ctx.fillStyle = "#00ffcc";
+        //     ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        // }
+function drawPaddle() {
+    // Save the current context state
+    ctx.save();
+    
+    // Create paddle path with rounded corners
+    ctx.beginPath();
+    const radius = paddle.height / 2;
+    ctx.moveTo(paddle.x + radius, paddle.y);
+    ctx.lineTo(paddle.x + paddle.width - radius, paddle.y);
+    ctx.quadraticCurveTo(paddle.x + paddle.width, paddle.y, paddle.x + paddle.width, paddle.y + radius);
+    ctx.lineTo(paddle.x + paddle.width, paddle.y + paddle.height - radius);
+    ctx.quadraticCurveTo(paddle.x + paddle.width, paddle.y + paddle.height, paddle.x + paddle.width - radius, paddle.y + paddle.height);
+    ctx.lineTo(paddle.x + radius, paddle.y + paddle.height);
+    ctx.quadraticCurveTo(paddle.x, paddle.y + paddle.height, paddle.x, paddle.y + paddle.height - radius);
+    ctx.lineTo(paddle.x, paddle.y + radius);
+    ctx.quadraticCurveTo(paddle.x, paddle.y, paddle.x + radius, paddle.y);
+    ctx.closePath();
+
+    // Create gradient
+    const gradient = ctx.createLinearGradient(
+        paddle.x, paddle.y,
+        paddle.x, paddle.y + paddle.height
+    );
+    gradient.addColorStop(0, '#00ffcc');
+    gradient.addColorStop(0.5, '#00ccaa');
+    gradient.addColorStop(1, '#00aa88');
+
+    // Add shadow for glow effect
+    ctx.shadowColor = '#00ffcc';
+    // ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Fill paddle with gradient
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Add metallic shine effect
+    ctx.beginPath();
+    ctx.moveTo(paddle.x + radius, paddle.y + 3);
+    ctx.lineTo(paddle.x + paddle.width - radius, paddle.y + 3);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Add bottom shadow
+    ctx.beginPath();
+    ctx.moveTo(paddle.x + radius, paddle.y + paddle.height - 3);
+    ctx.lineTo(paddle.x + paddle.width - radius, paddle.y + paddle.height - 3);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Restore the context state
+    ctx.restore();
+}
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#ff0044";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+function drawBricks() {
+   
+    // brickRowCount = brickPattern[currentLevel-1].pattern.length;
+    // brickColumnCount = brickPattern[currentLevel-1].pattern[0].length;
+    console.log("brickRowCount,brickColumnCount",brickRowCount, brickColumnCount)
+    for (let r = 0; r < brickRowCount; r++) {
+        for (let c = 0; c < brickColumnCount; c++) {
+            let brick = bricks[r][c];
+            if (brick.status === 1) {
+                // Change color based on health
+                let color = "#FDCB6E"; // Default for health = 1
+                if (brick.health === 3) {
+                    color = "#FF6B6B";
+                } else if (brick.health === 2) {
+                    color = "#4ECDC4";
+                } 
+
+                ctx.fillStyle = color;
+                ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                
+                // Draw health number
+                //ctx.fillStyle = "#000";
+                //ctx.font = "12px Arial";
+                //ctx.textAlign = "center";
+                //ctx.fillText(brick.health, brick.x + brick.width / 2, brick.y + brick.height / 2 + 4);
+                
+                // Brick border
+                ctx.strokeStyle = "#fff";
+                ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+            }
+        }
+    }
+}
+// let bounceLeft = true; // Start with bouncing to the left
+// function movePaddle() {
+//     if (!autoPlay) return;
+    
+//     // Move the paddle to make the ball bounce left or right alternately
+//     let offset = bounceLeft ? -paddle.width / 4 : paddle.width / 4;
+//     paddle.x = ball.x - paddle.width / 2 + offset;
+
+//     // Ensure the paddle stays within canvas bounds
+//     if (paddle.x < 0) paddle.x = 0;
+//     if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+// }
+    
+let lastDy = ball.dy;  // Store the previous dy value
+let randomOffset = 0;  // Store offset value
+let offsetUpdated = false; // Ensure offset updates only once per bounce
+
+function getRandomOffset() {
+    return Math.random() * 20 - 5; // Random offset between -10 and 10
+}
+
+function movePaddle() {
+    if (!autoPlay) return;
+
+    // Check if ball changes direction from up (-Y) to down (+Y)
+    if (ball.dy > 0 && lastDy <= 0 && !offsetUpdated) {
+        randomOffset = getRandomOffset(); // Update offset only once per bounce
+        offsetUpdated = true;  // Prevent continuous updates
+    }
+
+    // Reset flag when the ball moves up again
+    if (ball.dy < 0) {
+        offsetUpdated = false;
+    }
+
+    // Apply the offset when ball is falling
+    paddle.x = ball.x - paddle.width / 2 + randomOffset;
+
+    // Ensure the paddle stays within canvas bounds
+    if (paddle.x < 0) paddle.x = 0;
+    if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+
+    lastDy = ball.dy; // Update lastDy
+}
+
+
+// Update ball bounce logic
+
+function checkBallCollision() {
+    // Ball collides with paddle
+    if (
+        ball.y + ball.radius >= paddle.y &&
+        ball.x >= paddle.x &&
+        ball.x <= paddle.x + paddle.width
+    ) {
+        y = -ball.dy; // Reverse vertical direction (bounce upwards)
+
+        // **Alternate ball's horizontal direction**
+        ball.dx = bounceLeft ? -Math.abs(ball.dx) : Math.abs(ball.dx);
+
+        // **Move paddle slightly for next bounce**
+        let offset = bounceLeft ? -paddle.width / 4 : paddle.width / 4;
+        paddle.x = ball.x - paddle.width / 2 + offset;
+
+        // Ensure paddle stays within canvas boundaries
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+
+        // **Toggle bounce direction for next hit**
+        bounceLeft = !bounceLeft;
+    }
+}
+
+
+
+        function moveBall() {
+    if (!gameRunning) return;
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Ball collision with walls (left and right)
+    if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+        ball.dx *= -1;
+
+        // Add a small random variation to prevent infinite loops
+        ball.dx += (Math.random() - 0.5) * 0.6;
+
+        // Ensure the ball does not get stuck moving only vertically
+        if (Math.abs(ball.dx) < 1) {
+            ball.dx = (ball.dx < 0 ? -1 : 1) * (Math.random() * 2 + 1);
+        }
+    }
+
+    // Ball collision with top
+    if (ball.y - ball.radius < 0) {
+        ball.dy *= -1;
+    }
+
+    // Ball collision with paddle
+    if (
+        ball.y + ball.radius > paddle.y &&
+        ball.x > paddle.x &&
+        ball.x < paddle.x + paddle.width
+    ) {
+        let deltaX = ball.x - (paddle.x + paddle.width / 2);
+        ball.dx = deltaX * 0.2;
+        ball.dx += (Math.random() - 0.5) * 0.4;
+        ball.dy = -Math.abs(ball.dy);
+        ball.speed = Math.min(ball.speed + 0.1, ball.maxSpeed);
+    }
+
+    // Ball falls below paddle
+    if (ball.y + ball.radius > canvas.height) {
+        lives--;
+        if (lives === 0) {
+            showOverlay("Game Over!", "Replay!");
+            // gameFinish = tru
+            return;
+        }
+        resetBall();
+    }
+
+    // Ball collision with bricks
+    for (let r = 0; r < brickRowCount; r++) {
+        for (let c = 0; c < brickColumnCount; c++) {
+            let brick = bricks[r][c];
+            if (brick.status === 1) {
+                if (
+                    ball.x + ball.radius > brick.x &&
+                    ball.x - ball.radius < brick.x + brick.width &&
+                    ball.y + ball.radius > brick.y &&
+                    ball.y - ball.radius < brick.y + brick.height
+                ) {
+                    brick.health--;
+
+
+                    if (brick.health <= 0) {
+                        brick.status = 0;
+                        score++;
+                    }
+
+                    // Detect collision direction
+                    let hitFromLeft = ball.x < brick.x;
+                    let hitFromRight = ball.x > brick.x + brick.width;
+                    let hitFromTop = ball.y < brick.y;
+                    let hitFromBottom = ball.y > brick.y + brick.height;
+
+                    let horizontalOverlap = ball.x > brick.x && ball.x < brick.x + brick.width;
+                    let verticalOverlap = ball.y > brick.y && ball.y < brick.y + brick.height;
+
+                    if (horizontalOverlap) {
+                        ball.dy *= -1; // Flip vertical movement if hit from top or bottom
+                    } else if (verticalOverlap) {
+                        ball.dx *= -1; // Flip horizontal movement if hit from left or right
+                    }
+
+                    ball.dx += (Math.random() - 0.5) * 0.3; // Add randomness to prevent infinite loops
+
+                    // Win condition check
+                    // if (bricksPattern.every(row => row.every(brick => brick === 0))) {
+
+if (score === totalBricks) {
+    if (isLastLevel()) {
+            showOverlay("Congratulations! Game Completed! 🎉", "Play Again");
+            gameFinish = true;
+            // Reset to first level for next game
+            currentLevel = 1;
+        } else {
+            showOverlay("Level Complete! 🎉", "Next Level");
+            gameFinish = true;
+            currentLevel++;
+            // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length;
+        }
+        return;
+    // showOverlay("You Win! 🎉", "Next:)");
+    // gameFinish = true;
+    // currentLevel = currentLevel + 1;
+    // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length; // Count all non-zero bricks
+    // return;
+}
+                }
+            }
+        }
+    }
+}
+
+
+        function drawScoreLives() {
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "#fff";
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 5;
+            ctx.fillText("Score: " + score, 60, 30);
+            ctx.fillText("Lives: " + (lives < 0 ? 0 : lives), canvas.width - 140, 30);
+            ctx.shadowBlur = 0;
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPaddle();
+            drawBricks();
+            drawScoreLives();
+            
+            if (!gameRunning) {
+                ball.x = paddle.x + paddle.width / 2;
+                ball.y = paddle.y - ball.radius - 2;
+                drawBall();
+            } else {
+                moveBall();
+                drawBall();
+            }
+
+            movePaddle();
+            requestAnimationFrame(update);
+        }
+
+        function resetBall() {
+            gameRunning = false;
+            ball.dx = 0;
+            ball.dy = 0;
+            ball.speed = ball.baseSpeed;
+        }
+
+        function showOverlay(message, button) {
+            const overlay = document.getElementById("overlay");
+            document.getElementById("message").innerText = message;
+            document.getElementById("button").innerText = button;
+            overlay.classList.add("active");
+            gameRunning = false;
+        }
+
+function resetGame() {
+    gameFinish = false;
+    document.getElementById("overlay").classList.remove("active");
+    score = 0;
+    lives = 3;
+    // Update brick counts for new level
+    brickRowCount = brickPattern[currentLevel - 1].pattern.length;
+    brickColumnCount = brickPattern[currentLevel - 1].pattern[0].length;
+    totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length;
+    createBricks();
+    resetBall();
+}
+
+        // Handle touch events for mobile
+        function handleTouch(e) {
+            if (!autoPlay) {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const touchX = e.touches[0].clientX - rect.left;
+                paddle.x = touchX - paddle.width / 2;
+                
+                // Keep paddle within canvas bounds
+                if (paddle.x < 0) paddle.x = 0;
+                if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+            }
+        }
+
+        // Add touch event listeners
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameRunning && (bricks.length != 0)) {
+                gameRunning = true;
+                ball.dy = -ball.speed;
+                ball.dx = Math.random() * 4 - 2;
+            }
+            handleTouch(e);
+        });
+
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('touchend', (e) => e.preventDefault());
+
+        // Listen for "A" key press to toggle auto mode
+document.addEventListener("keydown", function (event) {
+    if (event.key.toLowerCase() === "a") {
+        autoPlay = !autoPlay; // Toggle autoPlay
+        autoPlayToggle.checked = autoPlay; // Sync checkbox state
+        if (autoPlay) {
+            movePaddle();
+        }
+    }
+});
+
+        document.addEventListener("keydown", (e) => {
+
+
+
+            if ((e.key === "Enter" || e.key === " ") && !gameRunning && (lives != 0) && !gameFinish) {
+                document.getElementById("overlay").classList.remove("active");
+                gameRunning = true;
+                ball.dy = -ball.speed;
+                ball.dx = (Math.random() * 4 - 2);
+            }
+        });
+
+        canvas.addEventListener("click", () => {
+            // console.log('bricks.length', bricks.length);
+            // if((bricksPattern.every(row => row.every(brick => brick === 0)))){return;}
+            if (!gameRunning && (lives != 0) && !gameFinish) {
+                gameRunning = true;
+                ball.dy = -ball.speed;
+                ball.dx = Math.random() * 4 - 2;
+            }
+        });
+
+        document.addEventListener("mousemove", (e) => {
+            if (!autoPlay) {
+                // console.log('bricks.length', bricks.length);
+                let rect = canvas.getBoundingClientRect();
+                paddle.x = e.clientX - rect.left - paddle.width / 2;
+                if (paddle.x < 0) paddle.x = 0;
+                if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+            }
+        });
+
+        update();
+    </script>
+</body>
+</html>
