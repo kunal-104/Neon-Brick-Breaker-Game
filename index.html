@@ -132,9 +132,44 @@
     </label>
 
     <script>
+
+        // Function to get the current level from localStorage
+function getCurrentLevel() {
+    let storedLevel = localStorage.getItem("clearedLevels");
+    if (storedLevel) {
+        return parseInt(storedLevel) + 1; // Set current level to cleared +1
+    } else {
+        setInitialLevel(); // Initialize if not found
+        return 1;
+    }
+}
+
+// Function to set up the initial level if localStorage is empty
+function setInitialLevel() {
+    localStorage.setItem("clearedLevels", "0"); // Start from level 1
+}
+
+// Function to update the level when a level is completed
+function updateLevel() {
+    let currentCleared = parseInt(localStorage.getItem("clearedLevels")) || 0;
+    localStorage.setItem("clearedLevels", currentCleared + 1);
+}
+
+// Usage Example
+// let currentLevel = getCurrentLevel();
+// console.log("Current Level:", currentLevel);
+
+// Call updateLevel() when a level is completed
+// updateLevel(); // Uncomment this to update when a level is finished
+
+
+
+
+
+
         let autoPlay = false;
         const autoPlayToggle = document.getElementById("autoPlayToggle");
-        let currentLevel = 1;
+        let currentLevel = getCurrentLevel();
 // Listen for checkbox change
 autoPlayToggle.addEventListener("change", function () {
     autoPlay = this.checked;
@@ -156,10 +191,7 @@ autoPlayToggle.addEventListener("change", function () {
     {
         pattern: [
             [0,0,0,0,1,1,1,1,0,0,0,0],
-            [0,0,0,1,1,1,1,1,1,0,0,0],
-            [0,0,1,1,1,1,1,1,1,1,0,0],
-            [0,1,1,1,1,1,1,1,1,1,1,0],
-            [1,1,1,1,1,1,1,1,1,1,1,1]
+
         ],
         speedMultiplier: 1.2
     },
@@ -167,22 +199,15 @@ autoPlayToggle.addEventListener("change", function () {
     {
         pattern: [
             [1,0,1,0,1,0,1,0,1,0,1,0],
-            [0,1,0,1,0,1,0,1,0,1,0,1],
-            [1,0,1,0,1,0,1,0,1,0,1,0],
-            [0,1,0,1,0,1,0,1,0,1,0,1],
-            [1,0,1,0,1,0,1,0,1,0,1,0]
+
         ],
         speedMultiplier: 1.4
     },
     // Level 4: Fortress pattern
     {
         pattern: [
-            [1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,0,1,1,0,0,0,0,1],
-            [1,0,1,1,0,1,1,0,1,1,0,1],
-            [1,0,1,1,0,1,1,0,1,1,0,1],
-            [1,0,0,0,0,1,1,0,0,0,0,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1]
+
         ],
         speedMultiplier: 1.6
     }
@@ -1090,11 +1115,13 @@ function checkBallCollision() {
 if (score === totalBricks) {
     if (isLastLevel()) {
             showOverlay("Congratulations! Game Completed! 🎉", "Play Again");
+            setInitialLevel();
             gameFinish = true;
             // Reset to first level for next game
             currentLevel = 1;
         } else {
             showOverlay("Level Complete! 🎉", "Next Level");
+            updateLevel();
             gameFinish = true;
             currentLevel++;
             // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length;
