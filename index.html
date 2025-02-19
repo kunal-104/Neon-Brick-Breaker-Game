@@ -1068,6 +1068,123 @@ function preventWallSticking() {
     }
 }
 
+//	            function moveBall() {
+//     if (!gameRunning) return;
+
+//     ball.x += ball.dx;
+//     ball.y += ball.dy;
+
+//     // Ball collision with walls (left and right)
+//     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+//         ball.dx *= -1;
+// 	ball.x += ball.dx; // Slightly shift position to prevent getting stuck
+//         preventWallSticking();
+
+//         // Add a small random variation to prevent infinite loops
+//         ball.dx += (Math.random() - 0.5) * 0.6;
+
+//         // Ensure the ball does not get stuck moving only vertically
+//         if (Math.abs(ball.dx) < 1) {
+//             ball.dx = (ball.dx < 0 ? -1 : 1) * (Math.random() * 2 + 1);
+//         }
+//     }
+
+//     // Ball collision with top
+//     if (ball.y - ball.radius < 0) {
+//         ball.dy *= -1;
+// 	ball.y += ball.dy; // Slightly shift position to prevent sticking
+//     }
+
+//     // Ball collision with paddle
+//     if (
+//         ball.y + ball.radius > paddle.y &&
+//         ball.x > paddle.x &&
+//         ball.x < paddle.x + paddle.width
+//     ) {
+//         let deltaX = ball.x - (paddle.x + paddle.width / 2);
+//         ball.dx = deltaX * 0.2;
+//         ball.dx += (Math.random() - 0.5) * 0.4;
+//         ball.dy = -Math.abs(ball.dy);
+//         ball.speed = Math.min(ball.speed + 0.1, ball.maxSpeed);
+//     }
+
+//     // Ball falls below paddle
+//     if (ball.y + ball.radius > canvas.height) {
+//         lives--;
+//         if (lives === 0) {
+//             showOverlay("Game Over!", "Replay!");
+//             // gameFinish = tru
+//             return;
+//         }
+//         resetBall();
+//     }
+
+//     // Ball collision with bricks
+//     for (let r = 0; r < brickRowCount; r++) {
+//         for (let c = 0; c < brickColumnCount; c++) {
+//             let brick = bricks[r][c];
+//             if (brick.status === 1) {
+//                 if (
+//                     ball.x + ball.radius > brick.x &&
+//                     ball.x - ball.radius < brick.x + brick.width &&
+//                     ball.y + ball.radius > brick.y &&
+//                     ball.y - ball.radius < brick.y + brick.height
+//                 ) {
+//                     brick.health--;
+
+
+//                     if (brick.health <= 0) {
+//                         brick.status = 0;
+//                         score++;
+//                     }
+
+//                     // Detect collision direction
+//                     let hitFromLeft = ball.x < brick.x;
+//                     let hitFromRight = ball.x > brick.x + brick.width;
+//                     let hitFromTop = ball.y < brick.y;
+//                     let hitFromBottom = ball.y > brick.y + brick.height;
+
+//                     let horizontalOverlap = ball.x > brick.x && ball.x < brick.x + brick.width;
+//                     let verticalOverlap = ball.y > brick.y && ball.y < brick.y + brick.height;
+
+//                     if (horizontalOverlap) {
+//                         ball.dy *= -1; // Flip vertical movement if hit from top or bottom
+//                     } else if (verticalOverlap) {
+//                         ball.dx *= -1; // Flip horizontal movement if hit from left or right
+//                     }
+
+//                     ball.dx += (Math.random() - 0.5) * 0.3; // Add randomness to prevent infinite loops
+
+//                     // Win condition check
+//                     // if (bricksPattern.every(row => row.every(brick => brick === 0))) {
+
+// if (score === totalBricks) {
+//     if (isLastLevel()) {
+//             showOverlay("Congratulations! Game Completed! 🎉", "Play Again");
+//             setInitialLevel();
+//             gameFinish = true;
+//             // Reset to first level for next game
+//             currentLevel = 1;
+//         } else {
+//             showOverlay("Level Complete! 🎉", "Next Level");
+//             updateLevel();
+//             gameFinish = true;
+//             currentLevel++;
+//             // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length;
+//         }
+//         return;
+//     // showOverlay("You Win! 🎉", "Next:)");
+//     // gameFinish = true;
+//     // currentLevel = currentLevel + 1;
+//     // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length; // Count all non-zero bricks
+//     // return;
+// }
+//                 }
+//             }
+//         }
+//     }
+// }
+			    
 function moveBall() {
     if (!gameRunning) return;
 
