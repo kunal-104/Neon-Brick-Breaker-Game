@@ -169,6 +169,7 @@ function updateLevel() {
 
         let autoPlay = false;
         const autoPlayToggle = document.getElementById("autoPlayToggle");
+        // let currentLevel = 3;
         let currentLevel = getCurrentLevel();
 // Listen for checkbox change
 autoPlayToggle.addEventListener("change", function () {
@@ -225,9 +226,42 @@ autoPlayToggle.addEventListener("change", function () {
         const ctx = canvas.getContext("2d");
 
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
+    const isMobile = window.innerWidth < 768; // Detect mobile devices
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+
+    if (isMobile) {
+        // Mobile: Full width, 65% height
+        canvas.width = screenWidth;
+        canvas.height = Math.floor(screenHeight * 0.65);
+
+        // Centering horizontally
+        canvas.style.position = "absolute";
+        canvas.style.top = "50%";
+        canvas.style.left = "50%";
+        canvas.style.transform = "translate(-50%, -50%)";
+        canvas.style.border = "3px solid red"; // Keep the red boundary
+        canvas.style.maxWidth = "100%";
+        canvas.style.maxHeight = "65vh"; // Maintain 65% height
+    } else {
+        // Laptop/Desktop: 90% of screen size
+        canvas.width = Math.floor(screenWidth * 0.9);
+        canvas.height = Math.floor(screenHeight * 0.9);
+
+        // Centering
+        canvas.style.position = "absolute";
+        canvas.style.top = "50%";
+        canvas.style.left = "50%";
+        canvas.style.transform = "translate(-50%, -50%)";
+        canvas.style.border = "3px solid red"; // Ensure red boundary
+    }
+
+    document.body.style.overflow = "hidden"; // Prevent scrolling
+}
+
+// Run on load & resize
+window.addEventListener("resize", resizeCanvas);
+window.addEventListener("load", resizeCanvas);
         resizeCanvas();
         window.addEventListener("resize", resizeCanvas);
 
@@ -1034,7 +1068,7 @@ function preventWallSticking() {
     }
 }
 
-        function moveBall() {
+function moveBall() {
     if (!gameRunning) return;
 
     ball.x += ball.dx;
@@ -1043,13 +1077,9 @@ function preventWallSticking() {
     // Ball collision with walls (left and right)
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
         ball.dx *= -1;
-	ball.x += ball.dx; // Slightly shift position to prevent getting stuck
+        ball.x += ball.dx; // Prevent sticking
         preventWallSticking();
-
-        // Add a small random variation to prevent infinite loops
-        ball.dx += (Math.random() - 0.5) * 0.6;
-
-        // Ensure the ball does not get stuck moving only vertically
+        ball.dx += (Math.random() - 0.5) * 0.6; // Add randomness
         if (Math.abs(ball.dx) < 1) {
             ball.dx = (ball.dx < 0 ? -1 : 1) * (Math.random() * 2 + 1);
         }
@@ -1058,7 +1088,7 @@ function preventWallSticking() {
     // Ball collision with top
     if (ball.y - ball.radius < 0) {
         ball.dy *= -1;
-	ball.y += ball.dy; // Slightly shift position to prevent sticking
+        ball.y += ball.dy; // Prevent sticking
     }
 
     // Ball collision with paddle
@@ -1079,13 +1109,14 @@ function preventWallSticking() {
         lives--;
         if (lives === 0) {
             showOverlay("Game Over!", "Replay!");
-            // gameFinish = tru
             return;
         }
         resetBall();
     }
 
     // Ball collision with bricks
+    let alreadyHit = false;
+    
     for (let r = 0; r < brickRowCount; r++) {
         for (let c = 0; c < brickColumnCount; c++) {
             let brick = bricks[r][c];
@@ -1096,67 +1127,99 @@ function preventWallSticking() {
                     ball.y + ball.radius > brick.y &&
                     ball.y - ball.radius < brick.y + brick.height
                 ) {
-                    brick.health--;
+                    if (!alreadyHit) {
+                        brick.health--;
+                        if (brick.health <= 0) {
+                            brick.status = 0;
+                            score++;
+                        }
 
+                        // Calculate collision side
+                        let overlapLeft = ball.x + ball.radius - brick.x;
+                        let overlapRight = brick.x + brick.width - (ball.x - ball.radius);
+                        let overlapTop = ball.y + ball.radius - brick.y;
+                        let overlapBottom = brick.y + brick.height - (ball.y - ball.radius);
 
-                    if (brick.health <= 0) {
-                        brick.status = 0;
-                        score++;
+                        let minOverlapX = Math.min(overlapLeft, overlapRight);
+                        let minOverlapY = Math.min(overlapTop, overlapBottom);
+
+                        if (minOverlapX < minOverlapY) {
+                            ball.dx *= -1; // Side collision
+                        } else {
+                            ball.dy *= -1; // Top/bottom collision
+                        }
+
+                        alreadyHit = true; // Prevent multiple hits in one frame
                     }
 
-                    // Detect collision direction
-                    let hitFromLeft = ball.x < brick.x;
-                    let hitFromRight = ball.x > brick.x + brick.width;
-                    let hitFromTop = ball.y < brick.y;
-                    let hitFromBottom = ball.y > brick.y + brick.height;
-
-                    let horizontalOverlap = ball.x > brick.x && ball.x < brick.x + brick.width;
-                    let verticalOverlap = ball.y > brick.y && ball.y < brick.y + brick.height;
-
-                    if (horizontalOverlap) {
-                        ball.dy *= -1; // Flip vertical movement if hit from top or bottom
-                    } else if (verticalOverlap) {
-                        ball.dx *= -1; // Flip horizontal movement if hit from left or right
-                    }
-
-                    ball.dx += (Math.random() - 0.5) * 0.3; // Add randomness to prevent infinite loops
+                    ball.dx += (Math.random() - 0.5) * 0.3; // Random variation
 
                     // Win condition check
-                    // if (bricksPattern.every(row => row.every(brick => brick === 0))) {
-
-if (score === totalBricks) {
-    if (isLastLevel()) {
-            showOverlay("Congratulations! Game Completed! 🎉", "Play Again");
-            setInitialLevel();
-            gameFinish = true;
-            // Reset to first level for next game
-            currentLevel = 1;
-        } else {
-            showOverlay("Level Complete! 🎉", "Next Level");
-            updateLevel();
-            gameFinish = true;
-            currentLevel++;
-            // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length;
-        }
-        return;
-    // showOverlay("You Win! 🎉", "Next:)");
-    // gameFinish = true;
-    // currentLevel = currentLevel + 1;
-    // totalBricks = brickPattern[currentLevel - 1].pattern.flat().filter(brick => brick !== 0).length; // Count all non-zero bricks
-    // return;
-}
+                    if (score === totalBricks) {
+                        if (isLastLevel()) {
+                            showOverlay("Congratulations! Game Completed! 🎉", "Play Again");
+                            setInitialLevel();
+                            gameFinish = true;
+                            currentLevel = 1;
+                        } else {
+                            showOverlay("Level Complete! 🎉", "Next Level");
+                            updateLevel();
+                            gameFinish = true;
+                            currentLevel++;
+                        }
+                        return;
+                    }
                 }
             }
         }
     }
 }
+function normalizeSpeed(baseSpeed) {
+    return baseSpeed * (window.innerWidth / 800); // Normalize based on 800px reference width
+}
+
+
+function resizeGameElements() {
+    let scaleFactor = window.innerWidth / 800; // Base size at 800px width
+
+    // Update paddle size and position
+    paddle.width = Math.max(80 * scaleFactor, 80);
+    paddle.height = Math.max(10 * scaleFactor, 10);
+    paddle.y = canvas.height - Math.max(40 * scaleFactor, 60);
+
+    // Update paddle speed
+    paddle.speed = Math.max(6 * scaleFactor, 4);
+
+    // Update ball size and speed
+    ball.radius = Math.max(6 * scaleFactor, 6);
+
+    // Ensure `normalizeSpeed()` is defined and working correctly
+    if (typeof normalizeSpeed === "function") {
+        ball.baseSpeed = normalizeSpeed(4);
+        ball.maxSpeed = normalizeSpeed(4);
+    } else {
+        console.error("normalizeSpeed function is not defined!");
+    }
+
+    createBricks(); // Ensure it resizes bricks properly
+}
+
+window.addEventListener("resize", () => {
+    resizeCanvas(); 
+    resizeGameElements();
+});
 
 
         function drawScoreLives() {
-            ctx.font = "20px Arial";
+            // ctx.font = "20px Arial";
+            const isMobile = window.innerWidth < 768; // Detect mobile
+            const fontSize = isMobile ? Math.floor(window.innerWidth * 0.05) : 24; // 5% of screen width for mobile, 32px for desktop
+
+            ctx.font = `${fontSize}px Arial`;
             ctx.fillStyle = "#fff";
             ctx.shadowColor = "black";
             ctx.shadowBlur = 5;
+
             ctx.fillText("Level: " + currentLevel + " Score: " + score , 60, 30);
             ctx.fillText("Lives: " + (lives < 0 ? 0 : lives), canvas.width - 140, 30);
             ctx.shadowBlur = 0;
