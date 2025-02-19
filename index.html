@@ -1025,6 +1025,15 @@ function checkBallCollision() {
 
 
 
+function preventWallSticking() {
+    if (Math.abs(ball.dx) < 0.5) {
+        ball.dx = (Math.random() > 0.5 ? 1 : -1) * 2; // Ensure a non-zero dx
+    }
+    if (Math.abs(ball.dy) < 0.5) {
+        ball.dy = (Math.random() > 0.5 ? 1 : -1) * 2; // Ensure a non-zero dy
+    }
+}
+
         function moveBall() {
     if (!gameRunning) return;
 
@@ -1034,6 +1043,8 @@ function checkBallCollision() {
     // Ball collision with walls (left and right)
     if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
         ball.dx *= -1;
+	ball.x += ball.dx; // Slightly shift position to prevent getting stuck
+        preventWallSticking();
 
         // Add a small random variation to prevent infinite loops
         ball.dx += (Math.random() - 0.5) * 0.6;
@@ -1047,6 +1058,7 @@ function checkBallCollision() {
     // Ball collision with top
     if (ball.y - ball.radius < 0) {
         ball.dy *= -1;
+	ball.y += ball.dy; // Slightly shift position to prevent sticking
     }
 
     // Ball collision with paddle
